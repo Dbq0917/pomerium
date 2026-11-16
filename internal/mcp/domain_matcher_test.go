@@ -34,15 +34,39 @@ func TestDomainMatcher_IsAllowed(t *testing.T) {
 			expected:       true,
 		},
 		{
-			name:           "wildcard does not match nested subdomain",
+			name:           "wildcard matches nested subdomain",
 			allowedDomains: []string{"*.github.com"},
 			hostname:       "foo.api.github.com",
-			expected:       false,
+			expected:       true,
+		},
+		{
+			name:           "wildcard matches deeply nested subdomain",
+			allowedDomains: []string{"*.github.com"},
+			hostname:       "foo.bar.baz.github.com",
+			expected:       true,
+		},
+		{
+			name:           "wildcard match is case-insensitive",
+			allowedDomains: []string{"*.GitHub.com"},
+			hostname:       "FOO.Bar.GITHUB.COM",
+			expected:       true,
 		},
 		{
 			name:           "wildcard does not match bare domain",
 			allowedDomains: []string{"*.github.com"},
 			hostname:       "github.com",
+			expected:       false,
+		},
+		{
+			name:           "wildcard does not match an empty first label",
+			allowedDomains: []string{"*.github.com"},
+			hostname:       ".github.com",
+			expected:       false,
+		},
+		{
+			name:           "wildcard does not match an empty nested label",
+			allowedDomains: []string{"*.github.com"},
+			hostname:       "foo..github.com",
 			expected:       false,
 		},
 		{
@@ -67,6 +91,18 @@ func TestDomainMatcher_IsAllowed(t *testing.T) {
 			name:           "partial match is not allowed",
 			allowedDomains: []string{"github.com"},
 			hostname:       "notgithub.com",
+			expected:       false,
+		},
+		{
+			name:           "wildcard does not match a partial domain suffix",
+			allowedDomains: []string{"*.github.com"},
+			hostname:       "notgithub.com",
+			expected:       false,
+		},
+		{
+			name:           "wildcard does not match a domain ending in the pattern without a label boundary",
+			allowedDomains: []string{"*.github.com"},
+			hostname:       "not.github.com.evil",
 			expected:       false,
 		},
 		{
@@ -102,6 +138,13 @@ func TestDomainMatcher_ValidateURLDomain(t *testing.T) {
 	t.Run("allowed wildcard domain", func(t *testing.T) {
 		matcher := NewDomainMatcher([]string{"vscode.dev", "*.github.com"})
 		u, _ := url.Parse("https://api.github.com/oauth/client.json")
+		err := matcher.ValidateURLDomain(u)
+		assert.NoError(t, err)
+	})
+
+	t.Run("allowed nested wildcard domain", func(t *testing.T) {
+		matcher := NewDomainMatcher([]string{"vscode.dev", "*.github.com"})
+		u, _ := url.Parse("https://foo.bar.github.com/oauth/client.json")
 		err := matcher.ValidateURLDomain(u)
 		assert.NoError(t, err)
 	})
